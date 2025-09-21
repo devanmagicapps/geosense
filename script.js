@@ -1,5 +1,6 @@
 // Import Firebase modules
-import { getFirestore, doc, runTransaction, arrayRemove, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+import { getFirestore, doc, runTransaction, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 // Your provided Firebase configuration
 const firebaseConfig = {
@@ -14,13 +15,14 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = window.firebase.app.initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // --- Constants ---
     const APP_DATA_STORAGE_KEY = 'magicAppDataV8_GridOnly_Bali_v5';
     const LICENSE_STORAGE_KEY = 'geosense_license_key_v1';
@@ -102,30 +104,22 @@ document.addEventListener('DOMContentLoaded', () => {
         licenseError.textContent = '';
 
         try {
-            const availableLicensesRef = doc(db, "licenses", "availableLicenses");
-            const activatedLicensesRef = doc(db, "licenses", "activatedLicenses");
+            const availableLicenseRef = doc(db, "availableLicenses", licenseKey);
+            const activatedLicenseRef = doc(db, "activatedLicenses", licenseKey);
 
             await runTransaction(db, async (transaction) => {
-                const availableLicensesDoc = await transaction.get(availableLicensesRef);
+                const availableLicenseDoc = await transaction.get(availableLicenseRef);
 
-                if (!availableLicensesDoc.exists()) {
-                    throw new Error("Sistem lisensi tidak tersedia.");
-                }
-
-                const availableKeys = availableLicensesDoc.data().keys || [];
-                if (!availableKeys.includes(licenseKey)) {
+                if (!availableLicenseDoc.exists()) {
                     throw new Error("Kunci lisensi tidak valid atau sudah digunakan.");
                 }
 
-                // Remove the key from available and add it to activated
-                transaction.update(availableLicensesRef, {
-                    keys: arrayRemove(licenseKey)
-                });
-                transaction.update(activatedLicensesRef, {
-                    [licenseKey]: {
-                        email: email,
-                        activationDate: new Date().toISOString()
-                    }
+                // Move the license from 'available' to 'activated'
+                transaction.delete(availableLicenseRef);
+                transaction.set(activatedLicenseRef, {
+                    email: email,
+                    uid: auth.currentUser.uid, // Store anonymous UID
+                    activationDate: new Date().toISOString()
                 });
             });
 
@@ -148,11 +142,22 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeAppLogic();
     }
 
-    function checkLicense() {
-        const storedLicense = localStorage.getItem(LICENSE_STORAGE_KEY);
-        if (storedLicense) {
-            grantAppAccess();
-        } else {
+    async function checkLicense() {
+        try {
+            await signInAnonymously(auth);
+            console.log("Signed in anonymously with UID:", auth.currentUser.uid);
+
+            const storedLicense = localStorage.getItem(LICENSE_STORAGE_KEY);
+            if (storedLicense) {
+                // Optional: You could add a check here to verify if the stored license is still valid in `activatedLicenses`
+                // For now, we trust the local storage.
+                grantAppAccess();
+            } else {
+                licenseModal.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error("Anonymous sign-in failed:", error);
+            licenseError.textContent = "Gagal terhubung ke server. Periksa koneksi Anda.";
             licenseModal.classList.remove('hidden');
         }
     }
@@ -176,7 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeEditor();
         initializePreviewHandlers();
 
-        // Add event listeners for the main app
         openSettingsBtn.addEventListener('click', () => { populateSettingsModal(); settingsModal.classList.remove('hidden'); });
         closeSettingsModalBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
         openInstructionsBtn.addEventListener('click', () => instructionsModal.classList.remove('hidden'));
@@ -729,5 +733,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Initial Load ---
-    checkLicense();
+    await checkLicense();
 });
