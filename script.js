@@ -1,19 +1,20 @@
-// Import Firebase modules
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getFirestore, doc, runTransaction, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+// PERBAIKAN 1: Tambahkan import 'initializeApp' dari 'firebase/app'
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Your provided Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAk6-5WxG2EbBjePe9hPQR9sTtrAVhJldo",
-  authDomain: "geosensemagic.firebaseapp.com",
-  projectId: "geosensemagic",
-  storageBucket: "geosensemagic.firebasestorage.app",
-  messagingSenderId: "397054292069",
-  appId: "1:397054292069:web:944838196845ebd490d68c"
+    apiKey: "AIzaSyAk6-5WxG2EbBjePe9hPQR9sTtrAVhJldo",
+    authDomain: "geosensemagic.firebaseapp.com",
+    projectId: "geosensemagic",
+    storageBucket: "geosensemagic.firebasestorage.app",
+    messagingSenderId: "397054292069",
+    appId: "1:397054292069:web:944838196845ebd490d68c"
 };
 
-// Initialize Firebase
-const app = window.firebase.app.initializeApp(firebaseConfig);
+// PERBAIKAN 2: Inisialisasi Firebase menggunakan gaya modular v9+
+const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
@@ -34,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const licenseKeyInput = document.getElementById('license-key-input');
     const activateBtn = document.getElementById('activate-btn');
     const licenseError = document.getElementById('license-error');
+    // PERBAIKAN 3: Pastikan variabel ini menunjuk ke ID yang benar ('app-container')
     const appContainer = document.getElementById('app-container');
 
     // --- Main App Elements ---
@@ -138,7 +140,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function grantAppAccess() {
         licenseModal.classList.add('hidden');
-        appContainer.classList.remove('hidden');
+        // This line will now work correctly because the ID matches
+        appContainer.classList.remove('hidden'); 
         initializeAppLogic();
     }
 
@@ -675,8 +678,8 @@ document.addEventListener('DOMContentLoaded', async () => {
              editorOpacity.addEventListener(evt, listener);
              editorBrightness.addEventListener(evt, listener);
              editorContrast.addEventListener(evt, listener);
-         });
-         
+        });
+        
         editorCanvasArea.addEventListener('mousedown', onPositioningDragStart);
         editorCanvasArea.addEventListener('touchstart', onPositioningDragStart, { passive: false });
         document.addEventListener('mousemove', onPositioningDragMove);
