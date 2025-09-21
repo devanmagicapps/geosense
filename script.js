@@ -1,4 +1,4 @@
-// PERBAIKAN 1: Tambahkan import 'initializeApp' dari 'firebase/app'
+// Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -13,7 +13,7 @@ const firebaseConfig = {
     appId: "1:397054292069:web:944838196845ebd490d68c"
 };
 
-// PERBAIKAN 2: Inisialisasi Firebase menggunakan gaya modular v9+
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
@@ -35,7 +35,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const licenseKeyInput = document.getElementById('license-key-input');
     const activateBtn = document.getElementById('activate-btn');
     const licenseError = document.getElementById('license-error');
-    // PERBAIKAN 3: Pastikan variabel ini menunjuk ke ID yang benar ('app-container')
     const appContainer = document.getElementById('app-container');
 
     // --- Main App Elements ---
@@ -116,16 +115,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error("Kunci lisensi tidak valid atau sudah digunakan.");
                 }
 
-                // Move the license from 'available' to 'activated'
                 transaction.delete(availableLicenseRef);
                 transaction.set(activatedLicenseRef, {
                     email: email,
-                    uid: auth.currentUser.uid, // Store anonymous UID
+                    uid: auth.currentUser.uid,
                     activationDate: new Date().toISOString()
                 });
             });
 
-            // If transaction is successful
             localStorage.setItem(LICENSE_STORAGE_KEY, licenseKey);
             showNotification("Lisensi berhasil diaktifkan!");
             grantAppAccess();
@@ -140,7 +137,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function grantAppAccess() {
         licenseModal.classList.add('hidden');
-        // This line will now work correctly because the ID matches
         appContainer.classList.remove('hidden'); 
         initializeAppLogic();
     }
@@ -152,8 +148,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const storedLicense = localStorage.getItem(LICENSE_STORAGE_KEY);
             if (storedLicense) {
-                // Optional: You could add a check here to verify if the stored license is still valid in `activatedLicenses`
-                // For now, we trust the local storage.
                 grantAppAccess();
             } else {
                 licenseModal.classList.remove('hidden');
@@ -414,8 +408,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         editorOverlayText.style.width = `${boundaryWidthPx}px`;
         editorOverlayText.style.height = `${boundaryHeightPx}px`;
-        editorOverlayText.style.transform = `translate(-50%, -50%) translate(${xPos}px, ${yPos}px) rotate(${s.rotation}deg)`;
         
+        // --- PERBAIKAN DIMULAI DI SINI ---
+        // 1. Atur posisi top/left elemen ke titik tengah boundary box.
+        editorOverlayText.style.left = `${xPos}px`;
+        editorOverlayText.style.top = `${yPos}px`;
+        
+        // 2. Gunakan transform HANYA untuk menengahkan elemen itu sendiri dan untuk rotasi.
+        // Hapus `translate(${xPos}px, ${yPos}px)` dari sini.
+        editorOverlayText.style.transform = `translate(-50%, -50%) rotate(${s.rotation}deg)`;
+        // --- AKHIR PERBAIKAN ---
+
         textMeasureHelper.style.width = `${boundaryWidthPx}px`;
         textMeasureHelper.textContent = s.text;
         
