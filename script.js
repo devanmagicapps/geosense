@@ -1,31 +1,40 @@
+// Import Firebase modules
+import { getFirestore, doc, runTransaction, arrayRemove, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+// Your provided Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAk6-5WxG2EbBjePe9hPQR9sTtrAVhJldo",
+  authDomain: "geosensemagic.firebaseapp.com",
+  projectId: "geosensemagic",
+  storageBucket: "geosensemagic.firebasestorage.app",
+  messagingSenderId: "397054292069",
+  appId: "1:397054292069:web:944838196845ebd490d68c"
+};
+
+// Initialize Firebase
+const app = window.firebase.app.initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js'));
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const STORAGE_KEY = 'magicAppDataV8_GridOnly_Bali_v5'; 
+    // --- Constants ---
+    const APP_DATA_STORAGE_KEY = 'magicAppDataV8_GridOnly_Bali_v5';
+    const LICENSE_STORAGE_KEY = 'geosense_license_key_v1';
 
-    const defaultData = {
-        settings: { 
-            searchEngine: 'maps', 
-            shortcutName: '',
-        },
-        pages: [ 
-            { startNumber: 1, regions: ['Pantai Kuta', 'Seminyak', 'Canggu', 'Garuda Wisnu Kencana', 'Pura Uluwatu'] },
-            { startNumber: 6, regions: ['Ubud', 'Sawah Terasering Tegalalang', 'Danau Beratan Bedugul', 'Tanah Lot', 'Pantai Lovina'] },
-            { startNumber: 11, regions: ['Nusa Dua', 'Sanur', 'Jimbaran', 'Gunung Batur', 'Tirta Empul'] }
-        ],
-        overlaySettings: {
-            text: 'Contoh Teks',
-            fontSizeScale: 1, 
-            color: '#ffffff', opacity: '1', rotation: '0',
-            boundary: null, 
-            brightness: '100', contrast: '100', 
-            baseImage: "https://placehold.co/600x400/1f2937/9ca3af?text=Pilih+Gambar"
-        }
-    };
-    
-    // --- Elements ---
+    // --- DOM Elements ---
+    const licenseModal = document.getElementById('license-modal');
+    const licenseForm = document.getElementById('license-form');
+    const emailInput = document.getElementById('email-input');
+    const licenseKeyInput = document.getElementById('license-key-input');
+    const activateBtn = document.getElementById('activate-btn');
+    const licenseError = document.getElementById('license-error');
+    const appContainer = document.getElementById('app-container');
+
+    // --- Main App Elements ---
     const mainView = document.querySelector('main');
     const openSettingsBtn = document.getElementById('open-settings-btn');
     const settingsModal = document.getElementById('settings-modal');
@@ -43,13 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewOverlay = document.getElementById('preview-overlay');
     const previewImage = document.getElementById('preview-image');
     const goToImageEditorBtn = document.getElementById('go-to-image-editor-btn');
-
-    // --- Image Editor Elements ---
     const imageEditorView = document.getElementById('image-editor-view');
     const saveAndReturnBtn = document.getElementById('save-and-return-btn');
     const editorCanvasArea = document.getElementById('image-editor-canvas-area');
     const editorBaseImage = document.getElementById('editor-base-image');
-    const editorImageUploadBtn = document.getElementById('editor-image-upload-btn');
     const editorImageUploadInput = document.getElementById('editor-image-upload-input');
     const editorOverlayText = document.getElementById('editor-overlay-text');
     const editorOverlayInput = document.getElementById('editor-overlay-input');
@@ -63,24 +69,199 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorTextBoundaryBox = document.getElementById('editor-text-boundary-box');
     const textMeasureHelper = document.getElementById('text-measure-helper');
 
+    // --- App State ---
     let appData = {};
     let currentPageIndex = 0;
     let setPageIndex = 0;
     let isSetSelectionMode = true;
     let isSingleItemMode = false;
+    let editorMode = 'idle';
+    let isDragging = false;
+    let dragStartX, dragStartY;
+
+    const defaultData = {
+        settings: { searchEngine: 'maps', shortcutName: '' },
+        pages: [
+            { startNumber: 1, regions: ['Pantai Kuta', 'Seminyak', 'Canggu', 'Garuda Wisnu Kencana', 'Pura Uluwatu'] },
+            { startNumber: 6, regions: ['Ubud', 'Sawah Terasering Tegalalang', 'Danau Beratan Bedugul', 'Tanah Lot', 'Pantai Lovina'] },
+            { startNumber: 11, regions: ['Nusa Dua', 'Sanur', 'Jimbaran', 'Gunung Batur', 'Tirta Empul'] }
+        ],
+        overlaySettings: {
+            text: 'Contoh Teks',
+            fontSizeScale: 1, color: '#ffffff', opacity: '1', rotation: '0',
+            boundary: null, brightness: '100', contrast: '100',
+            baseImage: "https://placehold.co/600x400/1f2937/9ca3af?text=Pilih+Gambar"
+        }
+    };
+
+    // --- License Handling ---
+
+    async function handleLicenseActivation(email, licenseKey) {
+        activateBtn.disabled = true;
+        activateBtn.textContent = 'Memverifikasi...';
+        licenseError.textContent = '';
+
+        try {
+            const availableLicensesRef = doc(db, "licenses", "availableLicenses");
+            const activatedLicensesRef = doc(db, "licenses", "activatedLicenses");
+
+            await runTransaction(db, async (transaction) => {
+                const availableLicensesDoc = await transaction.get(availableLicensesRef);
+
+                if (!availableLicensesDoc.exists()) {
+                    throw new Error("Sistem lisensi tidak tersedia.");
+                }
+
+                const availableKeys = availableLicensesDoc.data().keys || [];
+                if (!availableKeys.includes(licenseKey)) {
+                    throw new Error("Kunci lisensi tidak valid atau sudah digunakan.");
+                }
+
+                // Remove the key from available and add it to activated
+                transaction.update(availableLicensesRef, {
+                    keys: arrayRemove(licenseKey)
+                });
+                transaction.update(activatedLicensesRef, {
+                    [licenseKey]: {
+                        email: email,
+                        activationDate: new Date().toISOString()
+                    }
+                });
+            });
+
+            // If transaction is successful
+            localStorage.setItem(LICENSE_STORAGE_KEY, licenseKey);
+            showNotification("Lisensi berhasil diaktifkan!");
+            grantAppAccess();
+
+        } catch (error) {
+            console.error("Activation error:", error);
+            licenseError.textContent = error.message || "Gagal mengaktifkan. Coba lagi.";
+            activateBtn.disabled = false;
+            activateBtn.textContent = 'Aktifkan';
+        }
+    }
+
+    function grantAppAccess() {
+        licenseModal.classList.add('hidden');
+        appContainer.classList.remove('hidden');
+        initializeAppLogic();
+    }
+
+    function checkLicense() {
+        const storedLicense = localStorage.getItem(LICENSE_STORAGE_KEY);
+        if (storedLicense) {
+            grantAppAccess();
+        } else {
+            licenseModal.classList.remove('hidden');
+        }
+    }
+
+    licenseForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = emailInput.value.trim();
+        const licenseKey = licenseKeyInput.value.trim();
+        if (email && licenseKey) {
+            handleLicenseActivation(email, licenseKey);
+        } else {
+            licenseError.textContent = 'Email dan kunci lisensi harus diisi.';
+        }
+    });
+
+    // --- Main App Logic (Initialized after license check) ---
+
+    function initializeAppLogic() {
+        appData = loadDataFromStorage();
+        updateGridView();
+        initializeEditor();
+        initializePreviewHandlers();
+
+        // Add event listeners for the main app
+        openSettingsBtn.addEventListener('click', () => { populateSettingsModal(); settingsModal.classList.remove('hidden'); });
+        closeSettingsModalBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+        openInstructionsBtn.addEventListener('click', () => instructionsModal.classList.remove('hidden'));
+        closeInstructionsModalBtn.addEventListener('click', () => instructionsModal.classList.add('hidden'));
+
+        searchEngineRadios.forEach(radio => radio.addEventListener('change', (e) => {
+            shortcutNameContainer.classList.toggle('hidden', e.target.value !== 'shortcut');
+        }));
+
+        saveBtn.addEventListener('click', () => {
+            appData.settings.searchEngine = document.querySelector('input[name="searchEngine"]:checked').value;
+            appData.settings.shortcutName = shortcutNameInput.value.trim();
+            const allRegions = bulkAddInput.value.split(',').map(item => item.trim()).filter(Boolean);
+            const newPages = [];
+            let currentStartNumber = 1;
+            for (let i = 0; i < allRegions.length; i += 5) {
+                newPages.push({ startNumber: currentStartNumber, regions: allRegions.slice(i, i + 5) });
+                currentStartNumber += allRegions.slice(i, i + 5).length;
+            }
+            appData.pages = (newPages.length > 0) ? newPages : [{ startNumber: 1, regions: ['Item Contoh'] }];
+            saveDataToStorage();
+            isSetSelectionMode = true;
+            setPageIndex = 0;
+            updateGridView();
+            settingsModal.classList.add('hidden');
+            showNotification("Perubahan disimpan!");
+        });
+
+        document.getElementById('grid-view-container').addEventListener('click', (event) => {
+            const area = event.target.closest('.clickable-area');
+            if (!area) return;
+            const areaIndexOnScreen = parseInt(area.dataset.index);
+            let regionName;
+            if (isSingleItemMode) {
+                regionName = appData.pages[0].regions[0];
+            } else if (isSetSelectionMode) {
+                const actualSetIndex = (setPageIndex * 5) + areaIndexOnScreen;
+                if (appData.pages[actualSetIndex]) {
+                    currentPageIndex = actualSetIndex; isSetSelectionMode = false; changePage();
+                }
+                return;
+            } else {
+                regionName = appData.pages[currentPageIndex]?.regions[areaIndexOnScreen];
+            }
+            if (regionName) executeAction(regionName);
+        });
+
+        let touchStartX = 0;
+        document.getElementById('grid-view-container').addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+        document.getElementById('grid-view-container').addEventListener('touchend', (e) => {
+            if (isSingleItemMode) return;
+            const deltaX = e.changedTouches[0].screenX - touchStartX;
+            const swipeThreshold = 50;
+            if (isSetSelectionMode) {
+                const maxSetPageIndex = Math.ceil(appData.pages.length / 5) - 1;
+                if (deltaX < -swipeThreshold && setPageIndex < maxSetPageIndex) { setPageIndex++; changePage(); }
+                else if (deltaX > swipeThreshold && setPageIndex > 0) { setPageIndex--; changePage(); }
+            } else {
+                if (deltaX < -swipeThreshold && currentPageIndex < appData.pages.length - 1) { currentPageIndex++; changePage(); }
+                else if (deltaX > swipeThreshold) { isSetSelectionMode = true; setPageIndex = Math.floor(currentPageIndex / 5); changePage(); }
+            }
+        });
+
+        goToImageEditorBtn.addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+            toggleEditorView(true);
+        });
+        saveAndReturnBtn.addEventListener('click', () => {
+            toggleEditorView(false);
+            updateGridView();
+            showNotification("Pengaturan gambar disimpan!");
+        });
+    }
+
 
     function executeAction(regionName) {
         const { searchEngine, shortcutName } = appData.settings;
-        
         if (searchEngine === 'gallery') {
             showPreview(regionName);
             return;
         }
-
         let url = '';
         if (searchEngine === 'shortcut') {
             if (!shortcutName) { showNotification('Nama Shortcut belum diatur!'); return; }
-            url = `shortcuts://run-shortcut?name=${encodeURIComponent(shortcutName)}&input=${encodeURIComponent(regionName)}`; 
+            url = `shortcuts://run-shortcut?name=${encodeURIComponent(shortcutName)}&input=${encodeURIComponent(regionName)}`;
         } else {
             url = (searchEngine === 'maps') ? `https://maps.google.com/?q=${encodeURIComponent(regionName)}` : `https://www.google.com/search?q=${encodeURIComponent(regionName)}`;
         }
@@ -101,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadDataFromStorage() {
-        const storedData = localStorage.getItem(STORAGE_KEY);
+        const storedData = localStorage.getItem(APP_DATA_STORAGE_KEY);
         try {
             const parsedData = JSON.parse(storedData);
             if (parsedData && parsedData.settings && parsedData.pages) {
@@ -115,8 +296,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { return defaultData; }
     }
 
-    function saveDataToStorage() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); }
-    
+    function saveDataToStorage() { localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData)); }
+
     function updateGridView() {
         if (!appData.pages || appData.pages.length === 0) return;
         isSingleItemMode = appData.pages.length === 1 && appData.pages[0].regions.length === 1;
@@ -151,13 +332,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function showNotification(message) {
         notificationText.innerHTML = message;
-        notificationModal.classList.remove('hidden', 'opacity-0');
+        notificationModal.classList.remove('hidden');
+        notificationModal.style.opacity = '1';
         setTimeout(() => {
-            notificationModal.classList.add('opacity-0');
-            setTimeout(() => notificationModal.classList.add('hidden'), 2000);
-        }, 1500);
+            notificationModal.style.opacity = '0';
+            setTimeout(() => notificationModal.classList.add('hidden'), 500);
+        }, 2000);
     }
-
+    
     function populateSettingsModal() {
         document.querySelector(`input[name="searchEngine"][value="${appData.settings.searchEngine}"]`).checked = true;
         shortcutNameInput.value = appData.settings.shortcutName || '';
@@ -165,81 +347,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const allRegions = appData.pages.flatMap(page => page.regions);
         bulkAddInput.value = allRegions.join(', ');
     }
-    
-    // --- Event Listeners ---
-    openSettingsBtn.addEventListener('click', () => { populateSettingsModal(); settingsModal.classList.remove('hidden'); });
-    closeSettingsModalBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
-    openInstructionsBtn.addEventListener('click', () => instructionsModal.classList.remove('hidden'));
-    closeInstructionsModalBtn.addEventListener('click', () => instructionsModal.classList.add('hidden'));
-    
-    searchEngineRadios.forEach(radio => radio.addEventListener('change', (e) => {
-        shortcutNameContainer.classList.toggle('hidden', e.target.value !== 'shortcut');
-    }));
-
-    saveBtn.addEventListener('click', () => {
-        appData.settings.searchEngine = document.querySelector('input[name="searchEngine"]:checked').value;
-        appData.settings.shortcutName = shortcutNameInput.value.trim();
-        const allRegions = bulkAddInput.value.split(',').map(item => item.trim()).filter(Boolean);
-        const newPages = [];
-        let currentStartNumber = 1;
-        for (let i = 0; i < allRegions.length; i += 5) {
-            newPages.push({ startNumber: currentStartNumber, regions: allRegions.slice(i, i + 5) });
-            currentStartNumber += allRegions.slice(i, i + 5).length;
-        }
-        appData.pages = (newPages.length > 0) ? newPages : [{ startNumber: 1, regions: ['Item Contoh'] }];
-        saveDataToStorage();
-        isSetSelectionMode = true; 
-        setPageIndex = 0;
-        updateGridView();
-        settingsModal.classList.add('hidden');
-        showNotification("Perubahan disimpan!");
-    });
-
-    document.getElementById('grid-view-container').addEventListener('click', (event) => {
-        const area = event.target.closest('.clickable-area');
-        if (!area) return;
-        const areaIndexOnScreen = parseInt(area.dataset.index);
-        let regionName;
-        if (isSingleItemMode) {
-            regionName = appData.pages[0].regions[0];
-        } else if (isSetSelectionMode) {
-            const actualSetIndex = (setPageIndex * 5) + areaIndexOnScreen;
-            if (appData.pages[actualSetIndex]) { 
-                currentPageIndex = actualSetIndex; isSetSelectionMode = false; changePage(); 
-            }
-            return;
-        } else {
-            regionName = appData.pages[currentPageIndex]?.regions[areaIndexOnScreen];
-        }
-        if (regionName) executeAction(regionName);
-    });
-
-    let touchStartX = 0;
-    document.getElementById('grid-view-container').addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-    document.getElementById('grid-view-container').addEventListener('touchend', (e) => {
-        if (isSingleItemMode) return;
-        const deltaX = e.changedTouches[0].screenX - touchStartX; 
-        const swipeThreshold = 50;
-        if (isSetSelectionMode) {
-            const maxSetPageIndex = Math.ceil(appData.pages.length / 5) - 1;
-            if (deltaX < -swipeThreshold && setPageIndex < maxSetPageIndex) { setPageIndex++; changePage(); } 
-            else if (deltaX > swipeThreshold && setPageIndex > 0) { setPageIndex--; changePage(); }
-        } else {
-            if (deltaX < -swipeThreshold && currentPageIndex < appData.pages.length - 1) { currentPageIndex++; changePage(); } 
-            else if (deltaX > swipeThreshold) { isSetSelectionMode = true; setPageIndex = Math.floor(currentPageIndex / 5); changePage(); }
-        }
-    });
 
     function changePage() {
         document.querySelectorAll('.content-container').forEach(el => el.classList.add('fade-out'));
         setTimeout(() => { updateGridView(); }, 200);
     }
-
-    // --- OVERLAY EDITOR ---
-    let editorMode = 'idle'; // 'idle' or 'positioning'
-    let isDragging = false;
-    let dragStartX, dragStartY;
-
+    
     function getEditorRenderedImageRect() {
         const img = editorBaseImage;
         const container = editorCanvasArea;
@@ -376,13 +489,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const width = Math.abs(currentX_pct - startX_pct);
         const height = Math.abs(currentY_pct - startY_pct);
         
-        // --- MODIFICATION: Only update boundary box during drag, not the text ---
         const liveBoundary = { x, y, width, height };
         const imageOffsetX = renderedRect.left - editorCanvasArea.getBoundingClientRect().left;
         const imageOffsetY = renderedRect.top - editorCanvasArea.getBoundingClientRect().top;
         
         editorTextBoundaryBox.style.display = 'block';
-        editorOverlayText.style.display = 'none'; // Hide the text itself
+        editorOverlayText.style.display = 'none';
 
         editorTextBoundaryBox.style.left = `${imageOffsetX + (liveBoundary.x * renderedRect.width)}px`;
         editorTextBoundaryBox.style.top = `${imageOffsetY + (liveBoundary.y * renderedRect.height)}px`;
@@ -412,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (width > 0.01 && height > 0.01) {
             appData.overlaySettings.boundary = { x, y, width, height };
         }
-        updateEditorOverlayStyle(); // Show final result with text
+        updateEditorOverlayStyle();
     }
     
     async function showPreview(text) {
@@ -605,30 +717,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleEditorView(show) {
         if (show) {
             loadEditorSettings();
-            mainView.classList.add('hidden');
+            appContainer.classList.add('hidden');
             imageEditorView.classList.remove('hidden');
         } else {
             saveEditorSettings();
             saveDataToStorage();
             imageEditorView.classList.add('hidden');
-            mainView.classList.remove('hidden');
+            appContainer.classList.remove('hidden');
             settingsModal.classList.remove('hidden');
         }
     }
 
     // --- Initial Load ---
-    goToImageEditorBtn.addEventListener('click', () => {
-        settingsModal.classList.add('hidden');
-        toggleEditorView(true);
-    });
-    saveAndReturnBtn.addEventListener('click', () => {
-        toggleEditorView(false);
-        updateGridView(); // Refresh grid view
-        showNotification("Pengaturan gambar disimpan!");
-    });
-    
-    appData = loadDataFromStorage();
-    updateGridView();
-    initializeEditor();
-    initializePreviewHandlers();
+    checkLicense();
 });
