@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Main App Elements ---
     const mainView = document.querySelector('main');
-    // Tambahkan variabel untuk menargetkan div yang berisi tombol atas
     const topButtonsContainer = document.getElementById('open-settings-btn').parentElement;
     const openSettingsBtn = document.getElementById('open-settings-btn');
     const settingsModal = document.getElementById('settings-modal');
@@ -144,19 +143,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function checkLicense() {
+        // PERBAIKAN: Sembunyikan kedua kontainer utama di awal untuk mencegah "kedipan".
+        appContainer.classList.add('hidden');
+        licenseModal.classList.add('hidden');
+
         try {
             await signInAnonymously(auth);
             console.log("Signed in anonymously with UID:", auth.currentUser.uid);
 
             const storedLicense = localStorage.getItem(LICENSE_STORAGE_KEY);
             if (storedLicense) {
+                // Jika lisensi ditemukan, berikan akses. Fungsi ini akan menampilkan kontainer aplikasi.
                 grantAppAccess();
             } else {
+                // Jika tidak ada lisensi, tampilkan modal aktivasi.
                 licenseModal.classList.remove('hidden');
             }
         } catch (error) {
             console.error("Anonymous sign-in failed:", error);
             licenseError.textContent = "Gagal terhubung ke server. Periksa koneksi Anda.";
+            // Jika terjadi error, tampilkan juga modal aktivasi.
             licenseModal.classList.remove('hidden');
         }
     }
@@ -724,7 +730,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     function toggleEditorView(show) {
         if (show) {
             loadEditorSettings();
-            // PERBAIKAN: Sembunyikan elemen spesifik, bukan seluruh appContainer
             mainView.classList.add('hidden');
             topButtonsContainer.classList.add('hidden');
             
@@ -734,11 +739,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             saveDataToStorage();
             imageEditorView.classList.add('hidden');
 
-            // PERBAIKAN: Tampilkan kembali elemen spesifik
             mainView.classList.remove('hidden');
             topButtonsContainer.classList.remove('hidden');
 
-            // Baris ini dipertahankan sesuai keinginan Anda untuk kembali ke modal pengaturan
             settingsModal.classList.remove('hidden');
         }
     }
