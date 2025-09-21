@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Main App Elements ---
     const mainView = document.querySelector('main');
-    const topButtonsContainer = document.getElementById('open-settings-btn').parentElement;
+    const topButtonsContainer = document.getElementById('top-buttons-container');
     const openSettingsBtn = document.getElementById('open-settings-btn');
     const settingsModal = document.getElementById('settings-modal');
     const closeSettingsModalBtn = document.getElementById('close-settings-modal-btn');
@@ -72,7 +72,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const editorSetPositionBtn = document.getElementById('editor-set-position-btn');
     const editorTextBoundaryBox = document.getElementById('editor-text-boundary-box');
     const textMeasureHelper = document.getElementById('text-measure-helper');
-    // PERUBAHAN: Tambah elemen baru
     const editorBlendMode = document.getElementById('editor-blend-mode');
     const editorBlur = document.getElementById('editor-blur');
 
@@ -97,7 +96,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             text: 'Contoh Teks',
             fontSizeScale: 1, color: '#ffffff', opacity: '1', rotation: '0',
             boundary: null, brightness: '100', contrast: '100',
-            // PERUBAHAN: Tambah properti default baru
             blendMode: 'source-over', blur: '0',
             baseImage: "https://placehold.co/600x400/1f2937/9ca3af?text=Pilih+Gambar"
         }
@@ -438,7 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         editorOverlayText.style.fontSize = `${fontSize * (s.fontSizeScale || 1)}px`;
         editorOverlayText.style.color = s.color;
         editorOverlayText.style.opacity = s.opacity;
-        // PERUBAHAN: Terapkan filter blur di live preview
+        editorOverlayText.style.mixBlendMode = s.blendMode === 'source-over' ? 'normal' : s.blendMode;
         editorOverlayText.style.filter = `brightness(${s.brightness}%) contrast(${s.contrast}%) blur(${s.blur || 0}px)`;
         editorOverlayText.textContent = s.text;
         editorOverlayText.style.wordBreak = 'break-word';
@@ -454,7 +452,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         editorOpacity.value = s.opacity;
         editorBrightness.value = s.brightness;
         editorContrast.value = s.contrast;
-        // PERUBAHAN: Muat pengaturan baru
         editorBlendMode.value = s.blendMode || 'source-over';
         editorBlur.value = s.blur || '0';
         editorBaseImage.onload = () => updateEditorOverlayStyle();
@@ -471,7 +468,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             rotation: editorRotation.value,
             brightness: editorBrightness.value, 
             contrast: editorContrast.value,
-            // PERUBAHAN: Simpan pengaturan baru
             blendMode: editorBlendMode.value,
             blur: editorBlur.value,
         };
@@ -604,45 +600,60 @@ document.addEventListener('DOMContentLoaded', async () => {
             const img = new Image();
             img.crossOrigin = "Anonymous";
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Main canvas with the background image
+                const mainCanvas = document.createElement('canvas');
+                mainCanvas.width = img.naturalWidth;
+                mainCanvas.height = img.naturalHeight;
+                const mainCtx = mainCanvas.getContext('2d');
+                mainCtx.drawImage(img, 0, 0, mainCanvas.width, mainCanvas.height);
                 
+                // Calculate pixel values from percentages
                 const boundaryPx = {
-                    x: settings.boundary.x * canvas.width,
-                    y: settings.boundary.y * canvas.height,
-                    width: settings.boundary.width * canvas.width,
-                    height: settings.boundary.height * canvas.height,
+                    x: settings.boundary.x * mainCanvas.width,
+                    y: settings.boundary.y * mainCanvas.height,
+                    width: settings.boundary.width * mainCanvas.width,
+                    height: settings.boundary.height * mainCanvas.height,
                 };
                 
+                // Calculate font size and line breaks using the main context for measurement
                 const baseFontSize = boundaryPx.height * (settings.fontSizeScale || 1);
-                const { lines, fontSize, lineHeight } = wrapAndFitText(ctx, text, boundaryPx.width * 0.95, boundaryPx.height * 0.95, baseFontSize);
+                const { lines, fontSize, lineHeight } = wrapAndFitText(mainCtx, text, boundaryPx.width * 0.95, boundaryPx.height * 0.95, baseFontSize);
 
-                ctx.fillStyle = settings.color;
-                ctx.globalAlpha = parseFloat(settings.opacity);
-                // PERUBAHAN: Terapkan blend mode dan filter blur di sini
-                ctx.globalCompositeOperation = settings.blendMode || 'source-over';
-                ctx.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%) blur(${settings.blur || 0}px)`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.font = `bold ${fontSize}px 'Inter', sans-serif`;
+                // --- Use an off-screen canvas to render the text with filters ---
+                const textCanvas = document.createElement('canvas');
+                textCanvas.width = mainCanvas.width;
+                textCanvas.height = mainCanvas.height;
+                const textCtx = textCanvas.getContext('2d');
+
+                // Apply filters and styles for the text drawing
+                textCtx.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%) blur(${settings.blur || 0}px)`;
+                textCtx.fillStyle = settings.color;
+                textCtx.textAlign = 'center';
+                textCtx.textBaseline = 'middle';
+                textCtx.font = `bold ${fontSize}px 'Inter', sans-serif`;
                 
+                // Calculate text position
                 const xPos = boundaryPx.x + boundaryPx.width / 2;
                 const yPos = boundaryPx.y + boundaryPx.height / 2;
                 const totalTextHeight = (lines.length - 1) * lineHeight;
                 const startYOffset = -totalTextHeight / 2;
                 
-                ctx.save();
-                ctx.translate(xPos, yPos);
-                ctx.rotate(parseFloat(settings.rotation) * Math.PI / 180);
+                // Draw the text onto the off-screen canvas
+                textCtx.save();
+                textCtx.translate(xPos, yPos);
+                textCtx.rotate(parseFloat(settings.rotation) * Math.PI / 180);
                 for (let i = 0; i < lines.length; i++) {
-                    ctx.fillText(lines[i], 0, startYOffset + (i * lineHeight));
+                    textCtx.fillText(lines[i], 0, startYOffset + (i * lineHeight));
                 }
-                ctx.restore();
+                textCtx.restore();
                 
-                canvas.toBlob((blob) => {
+                // --- Composite the text canvas onto the main canvas ---
+                mainCtx.globalAlpha = parseFloat(settings.opacity);
+                mainCtx.globalCompositeOperation = settings.blendMode || 'source-over';
+                mainCtx.drawImage(textCanvas, 0, 0);
+                
+                // Generate the final image blob
+                mainCanvas.toBlob((blob) => {
                     if (blob) resolve(blob);
                     else reject(new Error("Gagal membuat gambar."));
                 }, 'image/png');
@@ -694,7 +705,6 @@ document.addEventListener('DOMContentLoaded', async () => {
              editorOpacity.addEventListener(evt, listener);
              editorBrightness.addEventListener(evt, listener);
              editorContrast.addEventListener(evt, listener);
-             // PERUBAHAN: Tambah event listener untuk elemen baru
              editorBlendMode.addEventListener(evt, listener);
              editorBlur.addEventListener(evt, listener);
         });
