@@ -545,9 +545,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     async function showPreview(text) {
+        // Set the text content on the preview element first
+        editorOverlayText.textContent = text;
+        appData.overlaySettings.text = text; // also update state just in case
+        updateEditorOverlayStyle(); // ensure style is recalculated for the new text
+
         showNotification("Membuat preview...");
         try {
-            const imageBlob = await generateCompositeImageAsBlob(text);
+            // Now capture the updated DOM
+            const imageBlob = await generateCompositeImageAsBlob(); // text argument no longer needed here
             if (!imageBlob) return;
             const imageUrl = URL.createObjectURL(imageBlob);
             previewImage.src = imageUrl;
@@ -562,110 +568,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    function wrapAndFitText(ctx, text, maxWidth, maxHeight, baseFontSize) {
-        let fontSize = baseFontSize;
-        let lines = [];
-        const words = text.split(' ');
-        while (fontSize > 8) {
-            ctx.font = `bold ${fontSize}px 'Inter', sans-serif`;
-            lines = [];
-            let currentLine = words[0] || '';
-            for (let i = 1; i < words.length; i++) {
-                const word = words[i];
-                const width = ctx.measureText(currentLine + " " + word).width;
-                if (width < maxWidth) {
-                    currentLine += " " + word;
-                } else {
-                    lines.push(currentLine);
-                    currentLine = word;
-                }
-            }
-            lines.push(currentLine);
-            const textMetrics = ctx.measureText('M');
-            const fontHeight = (textMetrics.fontBoundingBoxAscent || fontSize) + (textMetrics.fontBoundingBoxDescent || 0);
-            const totalHeight = lines.length * fontHeight;
-            if (totalHeight <= maxHeight) {
-                return { lines, fontSize, lineHeight: fontHeight };
-            }
-            fontSize -= 2;
-        }
-        return { lines, fontSize, lineHeight: (ctx.measureText('M').fontBoundingBoxAscent || fontSize) + (ctx.measureText('M').fontBoundingBoxDescent || 0) };
-    }
-
-    function generateCompositeImageAsBlob(text) {
+    function generateCompositeImageAsBlob() {
         return new Promise((resolve, reject) => {
             const settings = appData.overlaySettings;
             if (!settings.boundary) return reject(new Error("Batas area teks belum diatur."));
-            
-            const img = new Image();
-            img.crossOrigin = "Anonymous";
-            img.onload = () => {
-                // Main canvas for the final output
-                const mainCanvas = document.createElement('canvas');
-                mainCanvas.width = img.naturalWidth;
-                mainCanvas.height = img.naturalHeight;
-                const mainCtx = mainCanvas.getContext('2d');
-                
-                // Draw the base image first
-                mainCtx.drawImage(img, 0, 0, mainCanvas.width, mainCanvas.height);
-                
-                // --- Start reliable rendering using computed styles ---
-                const overlayEl = editorOverlayText;
-                const style = window.getComputedStyle(overlayEl);
 
-                // Create an off-screen canvas for the text layer
-                const textCanvas = document.createElement('canvas');
-                textCanvas.width = mainCanvas.width;
-                textCanvas.height = mainCanvas.height;
-                const textCtx = textCanvas.getContext('2d');
+            const captureElement = document.getElementById('image-editor-canvas-area');
+            const baseImg = editorBaseImage;
 
-                // Calculate pixel values from percentages
-                const boundaryPx = {
-                    x: settings.boundary.x * mainCanvas.width,
-                    y: settings.boundary.y * mainCanvas.height,
-                    width: settings.boundary.width * mainCanvas.width,
-                    height: settings.boundary.height * mainCanvas.height,
-                };
-                
-                // Calculate font size and line breaks
-                const baseFontSize = boundaryPx.height * (settings.fontSizeScale || 1);
-                const { lines, fontSize, lineHeight } = wrapAndFitText(textCtx, text, boundaryPx.width * 0.95, boundaryPx.height * 0.95, baseFontSize);
+            // Hide the boundary box during capture for a clean result
+            editorTextBoundaryBox.style.display = 'none';
 
-                // Apply computed styles directly to the text canvas context
-                textCtx.filter = style.filter;
-                textCtx.font = `bold ${fontSize}px 'Inter', sans-serif`;
-                textCtx.fillStyle = style.color;
-                textCtx.textAlign = 'center';
-                textCtx.textBaseline = 'middle';
-                
-                // Calculate text position
-                const xPos = boundaryPx.x + boundaryPx.width / 2;
-                const yPos = boundaryPx.y + boundaryPx.height / 2;
-                const totalTextHeight = (lines.length - 1) * lineHeight;
-                const startYOffset = -totalTextHeight / 2;
-                
-                // Draw the text (with rotation) onto the off-screen text canvas
-                textCtx.save();
-                textCtx.translate(xPos, yPos);
-                textCtx.rotate(parseFloat(settings.rotation) * Math.PI / 180);
-                for (let i = 0; i < lines.length; i++) {
-                    textCtx.fillText(lines[i], 0, startYOffset + (i * lineHeight));
-                }
-                textCtx.restore();
-                
-                // --- Composite the text canvas onto the main canvas ---
-                mainCtx.globalAlpha = style.opacity;
-                mainCtx.globalCompositeOperation = style.mixBlendMode === 'normal' ? 'source-over' : style.mixBlendMode;
-                mainCtx.drawImage(textCanvas, 0, 0);
-                
-                // Generate the final image blob from the main canvas
-                mainCanvas.toBlob((blob) => {
-                    if (blob) resolve(blob);
-                    else reject(new Error("Gagal membuat gambar."));
-                }, 'image/png');
+            const options = {
+                useCORS: true,
+                backgroundColor: null,
+                logging: false,
+                // Scale the capture to the natural resolution of the base image for high quality
+                width: baseImg.naturalWidth,
+                height: baseImg.naturalHeight,
+                windowWidth: baseImg.naturalWidth,
+                windowHeight: baseImg.naturalHeight,
             };
-            img.onerror = () => reject(new Error("Gagal memuat gambar untuk ekspor."));
-            img.src = settings.baseImage;
+
+            html2canvas(captureElement, options).then(canvas => {
+                // Show the boundary box again after capture
+                editorTextBoundaryBox.style.display = 'block';
+
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error("Gagal membuat gambar dari canvas."));
+                    }
+                }, 'image/png');
+            }).catch(error => {
+                // Also ensure boundary box is shown again if there's an error
+                editorTextBoundaryBox.style.display = 'block';
+                console.error("html2canvas error:", error);
+                reject(new Error("Gagal memproses gambar."));
+            });
         });
     }
 
