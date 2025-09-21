@@ -600,13 +600,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             const img = new Image();
             img.crossOrigin = "Anonymous";
             img.onload = () => {
-                // Main canvas with the background image
+                // Main canvas for the final output
                 const mainCanvas = document.createElement('canvas');
                 mainCanvas.width = img.naturalWidth;
                 mainCanvas.height = img.naturalHeight;
                 const mainCtx = mainCanvas.getContext('2d');
+                
+                // Draw the base image first
                 mainCtx.drawImage(img, 0, 0, mainCanvas.width, mainCanvas.height);
                 
+                // --- Start reliable rendering using computed styles ---
+                const overlayEl = editorOverlayText;
+                const style = window.getComputedStyle(overlayEl);
+
+                // Create an off-screen canvas for the text layer
+                const textCanvas = document.createElement('canvas');
+                textCanvas.width = mainCanvas.width;
+                textCanvas.height = mainCanvas.height;
+                const textCtx = textCanvas.getContext('2d');
+
                 // Calculate pixel values from percentages
                 const boundaryPx = {
                     x: settings.boundary.x * mainCanvas.width,
@@ -615,22 +627,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     height: settings.boundary.height * mainCanvas.height,
                 };
                 
-                // Calculate font size and line breaks using the main context for measurement
+                // Calculate font size and line breaks
                 const baseFontSize = boundaryPx.height * (settings.fontSizeScale || 1);
-                const { lines, fontSize, lineHeight } = wrapAndFitText(mainCtx, text, boundaryPx.width * 0.95, boundaryPx.height * 0.95, baseFontSize);
+                const { lines, fontSize, lineHeight } = wrapAndFitText(textCtx, text, boundaryPx.width * 0.95, boundaryPx.height * 0.95, baseFontSize);
 
-                // --- Use an off-screen canvas to render the text with filters ---
-                const textCanvas = document.createElement('canvas');
-                textCanvas.width = mainCanvas.width;
-                textCanvas.height = mainCanvas.height;
-                const textCtx = textCanvas.getContext('2d');
-
-                // Apply filters and styles for the text drawing
-                textCtx.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%) blur(${settings.blur || 0}px)`;
-                textCtx.fillStyle = settings.color;
+                // Apply computed styles directly to the text canvas context
+                textCtx.filter = style.filter;
+                textCtx.font = `bold ${fontSize}px 'Inter', sans-serif`;
+                textCtx.fillStyle = style.color;
                 textCtx.textAlign = 'center';
                 textCtx.textBaseline = 'middle';
-                textCtx.font = `bold ${fontSize}px 'Inter', sans-serif`;
                 
                 // Calculate text position
                 const xPos = boundaryPx.x + boundaryPx.width / 2;
@@ -638,7 +644,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const totalTextHeight = (lines.length - 1) * lineHeight;
                 const startYOffset = -totalTextHeight / 2;
                 
-                // Draw the text onto the off-screen canvas
+                // Draw the text (with rotation) onto the off-screen text canvas
                 textCtx.save();
                 textCtx.translate(xPos, yPos);
                 textCtx.rotate(parseFloat(settings.rotation) * Math.PI / 180);
@@ -648,11 +654,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 textCtx.restore();
                 
                 // --- Composite the text canvas onto the main canvas ---
-                mainCtx.globalAlpha = parseFloat(settings.opacity);
-                mainCtx.globalCompositeOperation = settings.blendMode || 'source-over';
+                mainCtx.globalAlpha = style.opacity;
+                mainCtx.globalCompositeOperation = style.mixBlendMode === 'normal' ? 'source-over' : style.mixBlendMode;
                 mainCtx.drawImage(textCanvas, 0, 0);
                 
-                // Generate the final image blob
+                // Generate the final image blob from the main canvas
                 mainCanvas.toBlob((blob) => {
                     if (blob) resolve(blob);
                     else reject(new Error("Gagal membuat gambar."));
