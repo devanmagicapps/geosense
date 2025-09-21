@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Geosense by Heri Sanjaya</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#000000">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Geosense">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/external-flaticons-lineal-color-flat-icons/180/external-magic-hat-circus-flaticons-lineal-color-flat-icons.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-black text-white">
+
+    <div class="absolute top-4 left-4 right-4 flex justify-between z-20">
+        <button id="open-settings-btn" class="p-2 rounded-full hover:bg-gray-800 transition-colors">
+            <img src="https://img.icons8.com/ios-glyphs/30/FFFFFF/settings.png" alt="Pengaturan" class="w-6 h-6"/>
+        </button>
+        <button id="open-instructions-btn" class="p-2 rounded-full hover:bg-gray-800 transition-colors">
+            <img src="https://img.icons8.com/ios-glyphs/30/FFFFFF/question-mark.png" alt="Instruksi" class="w-6 h-6"/>
+        </button>
+    </div>
+
+    <main class="w-full h-full flex flex-col items-center justify-center">
+        <div id="grid-view-container" class="relative w-[85vw] h-[85vw] max-w-[500px] max-h-[500px] sm:w-[70vh] sm:h-[70vh] border-2 border-white">
+            <div class="absolute inset-0 pointer-events-none">
+                <div class="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-[33%] bg-white"></div>
+                <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-0.5 h-[33%] bg-white"></div>
+                <div class="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 w-[33%] bg-white"></div>
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 h-0.5 w-[33%] bg-white"></div>
+            </div>
+            <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                <div data-index="0" class="clickable-area cursor-pointer relative flex items-center justify-center p-2 text-center"></div>
+                <div data-index="1" class="clickable-area cursor-pointer relative flex items-center justify-center p-2 text-center"></div>
+                <div data-index="2" class="clickable-area cursor-pointer relative flex items-center justify-center p-2 text-center"></div>
+                <div data-index="3" class="clickable-area cursor-pointer relative flex items-center justify-center p-2 text-center"></div>
+            </div>
+            <div data-index="4" class="clickable-area absolute top-1/2 left-1/2 w-[34%] h-[34%] border-2 border-white cursor-pointer transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center p-2 text-center"></div>
+        </div>
+        
+        <div id="message-area" class="mt-8 h-10 text-center flex flex-col items-center justify-center">
+            <p id="message-text" class="text-lg text-gray-400">Memuat...</p>
+        </div>
+    </main>
+
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 sm:p-8 modal">
+        <div class="bg-gray-900 border border-gray-700 rounded-lg shadow-xl w-full max-w-md flex flex-col text-white max-h-[90vh]">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                <h2 class="text-xl font-bold">Pengaturan Rahasia</h2>
+                <button id="close-settings-modal-btn" class="p-1 rounded-full hover:bg-gray-700">
+                    <img src="https://img.icons8.com/ios-filled/24/FFFFFF/delete-sign.png" alt="Tutup" class="w-5 h-5"/>
+                </button>
+            </div>
+            
+            <div class="overflow-y-auto modal-content-area">
+                <div class="p-4 border-b border-gray-700">
+                    <h3 class="font-semibold mb-2">Buka Prediksi di:</h3>
+                    <div class="flex flex-col space-y-2">
+                        <label class="flex items-center"><input type="radio" name="searchEngine" value="maps" class="mr-2"> Google Maps</label>
+                        <label class="flex items-center"><input type="radio" name="searchEngine" value="google" class="mr-2"> Google Search</label>
+                        <label class="flex items-center"><input type="radio" name="searchEngine" value="shortcut" class="mr-2"> Shortcut iOS</label>
+                        <label class="flex items-center"><input type="radio" name="searchEngine" value="gallery" class="mr-2"> Galeri (Mode Preview)</label>
+                    </div>
+                    <div id="shortcut-name-container" class="hidden mt-3">
+                        <label for="shortcut-name-input" class="block font-medium text-sm mb-1">Nama Shortcut</label>
+                        <input type="text" id="shortcut-name-input" placeholder="Contoh: Proses Prediksi" class="w-full bg-gray-800 text-white border border-gray-600 rounded px-3 py-2">
+                    </div>
+                </div>
+
+                <div class="p-4 border-y border-gray-700 space-y-3">
+                    <label for="bulk-add-input" class="block font-medium text-sm mb-1">Daftar Item Prediksi (pisahkan dengan koma)</label>
+                    <textarea id="bulk-add-input" rows="8" placeholder="Jakarta, Bandung, Surabaya, ..." class="w-full bg-gray-800 text-white border border-gray-600 rounded px-3 py-2"></textarea>
+                </div>
+
+                <div class="p-4 space-y-3">
+                     <h3 class="font-semibold mb-2">Pengaturan Gambar</h3>
+                     <button id="go-to-image-editor-btn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-500">Atur Prediksi Gambar</button>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-gray-700 flex-shrink-0">
+                <button id="save-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition-colors">
+                    Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="image-editor-view" class="hidden fixed inset-0 bg-gray-900 z-40 flex flex-col">
+        <div class="p-2 bg-gray-800 text-white flex justify-between items-center flex-shrink-0">
+            <h2 class="font-bold">Editor Prediksi Gambar</h2>
+            <button id="save-and-return-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1 px-3 rounded text-sm">Simpan & Kembali</button>
+        </div>
+
+        <div id="image-editor-canvas-area" class="relative flex-grow flex items-center justify-center p-2 overflow-hidden">
+             <img id="editor-base-image" src="https://placehold.co/600x400/1f2937/9ca3af?text=Pilih+Gambar" alt="Editor Preview" class="max-w-full max-h-full block object-contain pointer-events-none">
+             <div id="editor-text-boundary-box" class="absolute border-2 border-dashed border-cyan-400 pointer-events-none" style="display: none;"></div>
+             <div id="editor-overlay-text" class="absolute font-bold flex items-center justify-center text-center" style="display: none;">
+                Contoh Teks
+             </div>
+        </div>
+        
+        <div id="text-measure-helper" class="absolute font-bold text-center" style="visibility: hidden; top: -1000px; left: -1000px; word-break: break-word;"></div>
+
+        <div id="image-editor-controls" class="flex-shrink-0 bg-gray-800 text-white p-4 overflow-y-auto max-h-[40vh]">
+             <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm max-w-lg mx-auto">
+                 <div class="col-span-2">
+                     <label id="editor-image-upload-btn" for="editor-image-upload-input" class="block w-full text-center bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-500 transition-colors cursor-pointer">
+                         Pilih Gambar Latar
+                     </label>
+                     <input type="file" id="editor-image-upload-input" accept="image/*" class="hidden">
+                 </div>
+
+                 <div class="col-span-2">
+                    <button id="editor-set-position-btn" class="w-full bg-cyan-600 text-white py-2 px-4 rounded hover:bg-cyan-500">Atur Posisi Teks</button>
+                 </div>
+
+                 <div class="col-span-2">
+                    <label for="editor-overlay-input" class="block font-medium">Teks Overlay (Default)</label>
+                    <input type="text" id="editor-overlay-input" placeholder="Tulis teks overlay" class="w-full border px-3 py-2 rounded bg-gray-700 text-white border-gray-600">
+                 </div>
+                 
+                 <div>
+                     <label for="editor-font-size" class="block font-medium">Ukuran</label>
+                     <input type="range" id="editor-font-size" min="10" max="200" value="100" class="w-full">
+                 </div>
+                 <div>
+                     <label for="editor-rotation" class="block font-medium">Rotasi</label>
+                     <input type="range" id="editor-rotation" min="-180" max="180" value="0" class="w-full">
+                 </div>
+
+                 <div>
+                     <label for="editor-opacity" class="block font-medium">Opacity</label>
+                     <input type="range" id="editor-opacity" min="0" max="1" step="0.05" value="1" class="w-full">
+                 </div>
+                  <div>
+                     <label for="editor-color" class="block font-medium">Warna</label>
+                     <input type="color" id="editor-color" value="#ffffff" class="w-full h-8 border-none p-0 rounded cursor-pointer bg-gray-700">
+                 </div>
+                 
+                 <div>
+                     <label for="editor-brightness" class="block font-medium">Brightness</label>
+                     <input type="range" id="editor-brightness" min="0" max="200" value="100" class="w-full">
+                 </div>
+                 <div>
+                     <label for="editor-contrast" class="block font-medium">Contrast</label>
+                     <input type="range" id="editor-contrast" min="0" max="200" value="100" class="w-full">
+                 </div>
+             </div>
+        </div>
+    </div>
+    
+    <div id="instructions-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 sm:p-8 modal">
+       <div class="bg-gray-900 border border-gray-700 rounded-lg shadow-xl w-full max-w-md flex flex-col text-white max-h-[90vh]">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                <h2 class="text-xl font-bold">Panduan</h2>
+                <button id="close-instructions-modal-btn" class="p-1 rounded-full hover:bg-gray-700">
+                    <img src="https://img.icons8.com/ios-filled/24/FFFFFF/delete-sign.png" alt="Tutup" class="w-5 h-5"/>
+                </button>
+            </div>
+             <div class="p-6 space-y-4 overflow-y-auto modal-content-area">
+                 <div>
+                     <h3 class="font-semibold text-lg mb-2">Efek</h3>
+                     <p class="text-sm">Anda memulai dengan berkata, "Saya sudah punya satu prediksi di Google Maps." Setelah penonton menyebutkan satu lokasi secara bebas, Anda menunjukkan layar ponsel Anda, dan ternyata Google Maps menampilkan lokasi yang sama persis dengan yang baru saja mereka sebutkan.</p>
+                 </div>
+                 
+                 <div>
+                     <h4 class="font-semibold text-md mt-4 mb-2">Metode Rahasia (Mode Galeri)</h4>
+                     <ol class="list-decimal list-inside space-y-3 text-sm mt-3">
+                           <li>
+                               <strong>Input Rahasia:</strong> Saat penonton menyebutkan pilihan, Anda melakukan input rahasia seperti biasa di grid.
+                           </li>
+                           <li>
+                               <strong>Munculkan Preview:</strong> Layar akan menjadi hitam dan menampilkan gambar prediksi yang sudah jadi (gambar + teks).
+                           </li>
+                           <li>
+                               <strong>Simpan/Bagikan:</strong> Tekan dan tahan gambar preview untuk memunculkan menu "Share" dari ponsel Anda. Dari sana Anda bisa menyimpannya ke galeri atau mengirimnya ke aplikasi lain.
+                           </li>
+                           <li>
+                               <strong>Tutup Preview:</strong> Ketuk dua kali (double tap) di area hitam di luar gambar untuk kembali ke layar grid.
+                           </li>
+                     </ol>
+                 </div>
+             </div>
+        </div>
+    </div>
+
+    <div id="notification-modal" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black bg-opacity-80 text-white text-center p-6 rounded-lg z-60">
+        <p id="notification-text" class="font-semibold"></p>
+    </div>
+
+    <div id="preview-overlay" class="hidden fixed inset-0 bg-black flex items-center justify-center z-50">
+        <img id="preview-image" src="" alt="Preview Prediksi" class="max-w-full max-h-full object-contain shadow-2xl">
+    </div>
+
+    <div class="absolute bottom-4 left-0 right-0 text-center italic text-xs text-gray-500 pointer-events-none">
+        concepted by Heri Sanjaya
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
