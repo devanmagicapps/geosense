@@ -72,6 +72,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const editorSetPositionBtn = document.getElementById('editor-set-position-btn');
     const editorTextBoundaryBox = document.getElementById('editor-text-boundary-box');
     const textMeasureHelper = document.getElementById('text-measure-helper');
+    // PERUBAHAN: Tambah elemen baru
+    const editorBlendMode = document.getElementById('editor-blend-mode');
+    const editorBlur = document.getElementById('editor-blur');
 
     // --- App State ---
     let appData = {};
@@ -94,6 +97,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             text: 'Contoh Teks',
             fontSizeScale: 1, color: '#ffffff', opacity: '1', rotation: '0',
             boundary: null, brightness: '100', contrast: '100',
+            // PERUBAHAN: Tambah properti default baru
+            blendMode: 'source-over', blur: '0',
             baseImage: "https://placehold.co/600x400/1f2937/9ca3af?text=Pilih+Gambar"
         }
     };
@@ -143,7 +148,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function checkLicense() {
-        // PERBAIKAN: Sembunyikan kedua kontainer utama di awal untuk mencegah "kedipan".
         appContainer.classList.add('hidden');
         licenseModal.classList.add('hidden');
 
@@ -153,16 +157,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const storedLicense = localStorage.getItem(LICENSE_STORAGE_KEY);
             if (storedLicense) {
-                // Jika lisensi ditemukan, berikan akses. Fungsi ini akan menampilkan kontainer aplikasi.
                 grantAppAccess();
             } else {
-                // Jika tidak ada lisensi, tampilkan modal aktivasi.
                 licenseModal.classList.remove('hidden');
             }
         } catch (error) {
             console.error("Anonymous sign-in failed:", error);
             licenseError.textContent = "Gagal terhubung ke server. Periksa koneksi Anda.";
-            // Jika terjadi error, tampilkan juga modal aktivasi.
             licenseModal.classList.remove('hidden');
         }
     }
@@ -437,7 +438,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         editorOverlayText.style.fontSize = `${fontSize * (s.fontSizeScale || 1)}px`;
         editorOverlayText.style.color = s.color;
         editorOverlayText.style.opacity = s.opacity;
-        editorOverlayText.style.filter = `brightness(${s.brightness}%) contrast(${s.contrast}%)`;
+        // PERUBAHAN: Terapkan filter blur di live preview
+        editorOverlayText.style.filter = `brightness(${s.brightness}%) contrast(${s.contrast}%) blur(${s.blur || 0}px)`;
         editorOverlayText.textContent = s.text;
         editorOverlayText.style.wordBreak = 'break-word';
     }
@@ -452,6 +454,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         editorOpacity.value = s.opacity;
         editorBrightness.value = s.brightness;
         editorContrast.value = s.contrast;
+        // PERUBAHAN: Muat pengaturan baru
+        editorBlendMode.value = s.blendMode || 'source-over';
+        editorBlur.value = s.blur || '0';
         editorBaseImage.onload = () => updateEditorOverlayStyle();
         updateEditorOverlayStyle();
     }
@@ -466,6 +471,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             rotation: editorRotation.value,
             brightness: editorBrightness.value, 
             contrast: editorContrast.value,
+            // PERUBAHAN: Simpan pengaturan baru
+            blendMode: editorBlendMode.value,
+            blur: editorBlur.value,
         };
     }
     
@@ -614,7 +622,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 ctx.fillStyle = settings.color;
                 ctx.globalAlpha = parseFloat(settings.opacity);
-                ctx.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%)`;
+                // PERUBAHAN: Terapkan blend mode dan filter blur di sini
+                ctx.globalCompositeOperation = settings.blendMode || 'source-over';
+                ctx.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%) blur(${settings.blur || 0}px)`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.font = `bold ${fontSize}px 'Inter', sans-serif`;
@@ -684,6 +694,9 @@ document.addEventListener('DOMContentLoaded', async () => {
              editorOpacity.addEventListener(evt, listener);
              editorBrightness.addEventListener(evt, listener);
              editorContrast.addEventListener(evt, listener);
+             // PERUBAHAN: Tambah event listener untuk elemen baru
+             editorBlendMode.addEventListener(evt, listener);
+             editorBlur.addEventListener(evt, listener);
         });
         
         editorCanvasArea.addEventListener('mousedown', onPositioningDragStart);
