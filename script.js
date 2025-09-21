@@ -39,6 +39,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Main App Elements ---
     const mainView = document.querySelector('main');
+    // Tambahkan variabel untuk menargetkan div yang berisi tombol atas
+    const topButtonsContainer = document.getElementById('open-settings-btn').parentElement;
     const openSettingsBtn = document.getElementById('open-settings-btn');
     const settingsModal = document.getElementById('settings-modal');
     const closeSettingsModalBtn = document.getElementById('close-settings-modal-btn');
@@ -409,15 +411,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         editorOverlayText.style.width = `${boundaryWidthPx}px`;
         editorOverlayText.style.height = `${boundaryHeightPx}px`;
         
-        // --- PERBAIKAN DIMULAI DI SINI ---
-        // 1. Atur posisi top/left elemen ke titik tengah boundary box.
         editorOverlayText.style.left = `${xPos}px`;
         editorOverlayText.style.top = `${yPos}px`;
         
-        // 2. Gunakan transform HANYA untuk menengahkan elemen itu sendiri dan untuk rotasi.
-        // Hapus `translate(${xPos}px, ${yPos}px)` dari sini.
         editorOverlayText.style.transform = `translate(-50%, -50%) rotate(${s.rotation}deg)`;
-        // --- AKHIR PERBAIKAN ---
 
         textMeasureHelper.style.width = `${boundaryWidthPx}px`;
         textMeasureHelper.textContent = s.text;
@@ -727,13 +724,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     function toggleEditorView(show) {
         if (show) {
             loadEditorSettings();
-            appContainer.classList.add('hidden');
+            // PERBAIKAN: Sembunyikan elemen spesifik, bukan seluruh appContainer
+            mainView.classList.add('hidden');
+            topButtonsContainer.classList.add('hidden');
+            
             imageEditorView.classList.remove('hidden');
         } else {
             saveEditorSettings();
             saveDataToStorage();
             imageEditorView.classList.add('hidden');
-            appContainer.classList.remove('hidden');
+
+            // PERBAIKAN: Tampilkan kembali elemen spesifik
+            mainView.classList.remove('hidden');
+            topButtonsContainer.classList.remove('hidden');
+
+            // Baris ini dipertahankan sesuai keinginan Anda untuk kembali ke modal pengaturan
             settingsModal.classList.remove('hidden');
         }
     }
