@@ -26,7 +26,7 @@
 <body class="bg-black text-white">
 
     <!-- License Activation Modal -->
-    <div id="license-modal" class="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center p-4">
+    <div id="license-modal" class="hidden fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center p-4">
         <div class="w-full max-w-sm bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-8 text-white">
             <h2 class="text-2xl font-bold text-center mb-2">Aktivasi Lisensi</h2>
             <p class="text-center text-gray-400 mb-6">Masukkan lisensi untuk menggunakan aplikasi.</p>
@@ -47,10 +47,7 @@
         </div>
     </div>
 
-    <!-- 
-      PERBAIKAN: ID diubah dari "app-content" menjadi "app-container" 
-      agar sesuai dengan yang dicari oleh script.js.
-    -->
+    <!-- App Content (Initially hidden) -->
     <div id="app-container" class="hidden h-full">
         <div class="absolute top-4 left-4 right-4 flex justify-between z-20">
             <button id="open-settings-btn" class="p-2 rounded-full hover:bg-gray-800 transition-colors">
@@ -151,48 +148,69 @@
 
             <div id="image-editor-controls" class="flex-shrink-0 bg-gray-800 text-white p-4 overflow-y-auto max-h-[40vh]">
                  <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm max-w-lg mx-auto">
-                      <div class="col-span-2">
-                          <label id="editor-image-upload-btn" for="editor-image-upload-input" class="block w-full text-center bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-500 transition-colors cursor-pointer">
-                              Pilih Gambar Latar
-                          </label>
-                          <input type="file" id="editor-image-upload-input" accept="image/*" class="hidden">
-                      </div>
+                     <div class="col-span-2">
+                         <label id="editor-image-upload-btn" for="editor-image-upload-input" class="block w-full text-center bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-500 transition-colors cursor-pointer">
+                             Pilih Gambar Latar
+                         </label>
+                         <input type="file" id="editor-image-upload-input" accept="image/*" class="hidden">
+                     </div>
 
-                      <div class="col-span-2">
-                        <button id="editor-set-position-btn" class="w-full bg-cyan-600 text-white py-2 px-4 rounded hover:bg-cyan-500">Atur Posisi Teks</button>
-                      </div>
+                     <div class="col-span-2">
+                         <button id="editor-set-position-btn" class="w-full bg-cyan-600 text-white py-2 px-4 rounded hover:bg-cyan-500">Atur Posisi Teks</button>
+                     </div>
 
-                      <div class="col-span-2">
-                        <label for="editor-overlay-input" class="block font-medium">Teks Overlay (Default)</label>
-                        <input type="text" id="editor-overlay-input" placeholder="Tulis teks overlay" class="w-full border px-3 py-2 rounded bg-gray-700 text-white border-gray-600">
-                      </div>
-                      
-                      <div>
-                          <label for="editor-font-size" class="block font-medium">Ukuran</label>
-                          <input type="range" id="editor-font-size" min="10" max="200" value="100" class="w-full">
-                      </div>
-                      <div>
-                          <label for="editor-rotation" class="block font-medium">Rotasi</label>
-                          <input type="range" id="editor-rotation" min="-180" max="180" value="0" class="w-full">
-                      </div>
+                     <div class="col-span-2">
+                         <label for="editor-overlay-input" class="block font-medium">Teks Overlay (Default)</label>
+                         <input type="text" id="editor-overlay-input" placeholder="Tulis teks overlay" class="w-full border px-3 py-2 rounded bg-gray-700 text-white border-gray-600">
+                     </div>
+                     
+                     <div>
+                         <label for="editor-font-size" class="block font-medium">Ukuran</label>
+                         <input type="range" id="editor-font-size" min="10" max="200" value="100" class="w-full">
+                     </div>
+                     <div>
+                         <label for="editor-rotation" class="block font-medium">Rotasi</label>
+                         <input type="range" id="editor-rotation" min="-180" max="180" value="0" class="w-full">
+                     </div>
 
-                      <div>
-                          <label for="editor-opacity" class="block font-medium">Opacity</label>
-                          <input type="range" id="editor-opacity" min="0" max="1" step="0.05" value="1" class="w-full">
-                      </div>
-                       <div>
-                          <label for="editor-color" class="block font-medium">Warna</label>
-                          <input type="color" id="editor-color" value="#ffffff" class="w-full h-8 border-none p-0 rounded cursor-pointer bg-gray-700">
-                       </div>
-                      
-                      <div>
-                          <label for="editor-brightness" class="block font-medium">Brightness</label>
-                          <input type="range" id="editor-brightness" min="0" max="200" value="100" class="w-full">
-                      </div>
-                      <div>
-                          <label for="editor-contrast" class="block font-medium">Contrast</label>
-                          <input type="range" id="editor-contrast" min="0" max="200" value="100" class="w-full">
-                      </div>
+                     <div>
+                         <label for="editor-opacity" class="block font-medium">Opacity</label>
+                         <input type="range" id="editor-opacity" min="0" max="1" step="0.05" value="1" class="w-full">
+                     </div>
+                     
+                     <div>
+                         <label for="editor-color" class="block font-medium">Warna</label>
+                         <input type="color" id="editor-color" value="#ffffff" class="w-full h-8 border-none p-0 rounded cursor-pointer bg-gray-700">
+                     </div>
+                     
+                     <div>
+                         <label for="editor-brightness" class="block font-medium">Brightness</label>
+                         <input type="range" id="editor-brightness" min="0" max="200" value="100" class="w-full">
+                     </div>
+                     <div>
+                         <label for="editor-contrast" class="block font-medium">Contrast</label>
+                         <input type="range" id="editor-contrast" min="0" max="200" value="100" class="w-full">
+                     </div>
+                     
+                     <!-- PERUBAHAN: Tambah Blend Mode & Blur -->
+                     <div class="col-span-2">
+                        <label for="editor-blend-mode" class="block font-medium">Blend Mode</label>
+                        <select id="editor-blend-mode" class="w-full border px-3 py-2 rounded bg-gray-700 text-white border-gray-600">
+                            <option value="source-over">Normal</option>
+                            <option value="overlay">Overlay</option>
+                            <option value="soft-light">Soft Light</option>
+                            <option value="hard-light">Hard Light</option>
+                            <option value="multiply">Multiply</option>
+                            <option value="screen">Screen</option>
+                            <option value="difference">Difference</option>
+                        </select>
+                     </div>
+
+                     <div>
+                        <label for="editor-blur" class="block font-medium">Blur</label>
+                        <input type="range" id="editor-blur" min="0" max="20" value="0" step="0.5" class="w-full">
+                    </div>
+
                      <div class="col-span-2 h-10"></div>
                  </div>
             </div>
@@ -231,7 +249,7 @@
                           </ol>
                       </div>
                  </div>
-            </div>
+           </div>
         </div>
 
         <!-- Notification Modal -->
